@@ -1,0 +1,106 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity DAC_CONTROLLER_TOP is
+    Port ( 
+        clk200   : in  STD_LOGIC; -- Reloj Maestro de 200 MHz para todos
+        nRST     : in  STD_LOGIC; 
+        -- Interfaz de escritura desde el Procesador (AXI)
+        wr_en    : in  STD_LOGIC;
+        addr_wr  : in  STD_LOGIC_VECTOR (13 downto 0);
+        data_in  : in  STD_LOGIC_VECTOR (11 downto 0);
+        -- Entrada START1 manual (opcional)
+        START1_EXT : in  STD_LOGIC;
+        -- Salidas físicas del DAC
+        D1       : out STD_LOGIC;
+        nSYNQ    : out STD_LOGIC;
+        CLK_OUT  : out STD_LOGIC -- Este será el clk de 25 MHz generado dentro
+    );
+end DAC_CONTROLLER_TOP;
+
+architecture Structural of DAC_CONTROLLER_TOP is
+
+    -- Declaración de componentes
+    component AddrCtrl is
+        port (
+            clk     : in  std_logic;
+            rst     : in  std_logic;
+            DONE    : in  std_logic;
+            addr_rd : out std_logic_vector(13 downto 0);
+            START   : out std_logic
+        );
+    end component;
+
+    component Memoria_RAM is
+        Port ( 
+            clk      : in  STD_LOGIC;
+            wr_en    : in  STD_LOGIC;
+            addr_rd  : in  STD_LOGIC_VECTOR (13 downto 0);
+            addr_wr  : in  STD_LOGIC_VECTOR (13 downto 0);
+            data_in  : in  STD_LOGIC_VECTOR (11 downto 0);
+            data_out : out STD_LOGIC_VECTOR (11 downto 0)
+        );
+    end component;
+
+    component ESTUDIO_DAC_CTRL is
+        Port ( 
+            clk200  : in  STD_LOGIC;
+            nRST    : in  STD_LOGIC;
+            DATA1   : in  STD_LOGIC_VECTOR (11 downto 0);
+            START   : in  STD_LOGIC;
+            START1  : in  STD_LOGIC;
+            DONE    : out STD_LOGIC;
+            D1      : out STD_LOGIC;
+            nSYNQ   : out STD_LOGIC;
+            CLK_OUT : out STD_LOGIC
+        );
+    end component;
+
+    -- Señales de interconexión
+    signal addr_rd_s     : std_logic_vector(13 downto 0);
+    signal data_to_dac   : std_logic_vector(11 downto 0);
+    signal done_s        : std_logic;
+    signal start_from_ac : std_logic;
+
+begin
+
+    -- 1. CONTROLADOR DAC
+    -- Recibe los 200MHz y genera internamente los 25MHz para su FSM
+    U_DAC_CTRL : ESTUDIO_DAC_CTRL
+    port map(
+        clk200  => clk200,
+        nRST    => nRST,
+        DATA1   => data_to_dac,
+        START   => start_from_ac, -- Disparo automático del AddrCtrl
+        START1  => START1_EXT,    -- Disparo manual (Vitis)
+        DONE    => done_s,
+        D1      => D1,
+        nSYNQ   => nSYNQ,
+        CLK_OUT => CLK_OUT        -- Salida física de 25 MHz
+    );
+
+    -- 2. GENERADOR DE DIRECCIONES (AddrCtrl)
+    -- Corre a 200MHz pero solo cuenta cuando detecta el flanco de done_s
+    U_ADDR_CTRL : AddrCtrl
+    port map(
+        clk     => clk200,
+        rst     => nRST,
+        DONE    => done_s,
+        addr_rd => addr_rd_s,
+        START   => start_from_ac
+    );
+
+    -- 3. MEMORIA RAM
+    -- Acceso a 200MHz para que el dato esté listo inmediatamente
+    U_RAM : Memoria_RAM
+    port map(
+        clk      => clk200,
+        wr_en    => wr_en,
+        addr_rd  => addr_rd_s,
+        addr_wr  => addr_wr,
+        data_in  => data_in,
+        data_out => data_to_dac
+    );
+
+end Structural;
