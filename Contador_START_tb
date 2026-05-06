@@ -1,0 +1,53 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity Contador_START_tb is
+end Contador_START_tb;
+
+architecture Behavioral of Contador_START_tb is
+
+-- COMPONENTE
+component Contador_START is
+    Port ( 
+        clk        : in  STD_LOGIC;
+        rst        : in  STD_LOGIC;
+        start_reg  : in  STD_LOGIC;
+        start_out  : out STD_LOGIC
+    );
+end component;
+
+-- SEÑALES
+signal clk        : STD_LOGIC := '0';
+signal rst        : STD_LOGIC := '1';
+signal start_reg  : STD_LOGIC := '1';
+signal start_out  : STD_LOGIC;
+
+-- CLOCK PERIOD
+constant clk_period : time := 5 ns;  -- 100 MHz
+
+begin
+
+-- INSTANCIA
+UUT: Contador_START
+    port map(
+        clk        => clk,
+        rst        => rst,
+        start_reg  => start_reg,
+        start_out  => start_out
+    );
+
+-- GENERADOR DE CLOCK
+clk_process : process
+begin
+    while true loop
+        clk <= '0';
+        wait for clk_period/2;
+        clk <= '1';
+        wait for clk_period/2;
+    end loop;
+end process;
+
+-- ESTÍMULOS
+rst<= '0','1' after 10ns;
+
+end Behavioral;
