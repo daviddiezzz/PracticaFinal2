@@ -1,0 +1,70 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 03.02.2026 20:11:57
+-- Design Name: 
+-- Module Name: SHIFTREGISTER_ADC - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity SHIFTREGISTER_ADC is
+    Port ( clk    : in STD_LOGIC; -- reloj (20 MHz)
+              D1_i  : in STD_LOGIC; -- entrada dato 1 serie
+              en_cnt : in STD_LOGIC; 
+              D1_s      : out STD_LOGIC_VECTOR (11 downto 0); -- salida dato 1 en bus
+              ShiftCounter : out STD_LOGIC_VECTOR (3 downto 0)); -- contador de cambio
+end SHIFTREGISTER_ADC;
+
+architecture Behavioral of SHIFTREGISTER_ADC is
+
+
+    -- DECLARACIÓN DE SEÑALES
+    signal shiftreg : STD_LOGIC_VECTOR(15 downto 0) := (others => '0'); -- señal 4 bits
+    signal cuenta : unsigned(3  downto 0) := (others => '0'); -- contador
+
+begin
+
+    IDLE: process (clk, en_cnt)
+    begin
+        if rising_edge(clk) then 
+            if en_cnt = '1' then 
+                shiftreg(15 downto 1) <= shiftreg(14 downto 0);
+                shiftreg(0) <= D1_i;
+              
+                if cuenta = "1111" then -- cuando llega a 15
+                    D1_s <= shiftreg(11 downto 0); --  12 bits primeros
+                end if;
+                cuenta <= cuenta + 1;
+            else         
+                cuenta <= "0000";
+            end if;
+        end if;
+    end process;
+
+    ShiftCounter <= STD_LOGIC_VECTOR(cuenta);
+    
+end Behavioral;
