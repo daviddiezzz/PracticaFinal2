@@ -1,0 +1,93 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 31.01.2026 14:13:00
+-- Design Name: 
+-- Module Name: AddrCtrl - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity AddrCtrl is
+  port (
+    clk  : in  std_logic;
+    rst   : in  std_logic;
+    DONE   : in  std_logic;
+    addr_rd : out std_logic_vector( 13 downto 0);
+    START  : out std_logic
+  );
+end entity;
+
+architecture rtl of AddrCtrl is
+
+  signal done_1, done_2, done_3, done_4 : std_logic;  -- registros para detectar flanco
+  signal start_reg  : std_logic;
+  signal addr_cnt   : unsigned(13 downto 0) := (others => '0');
+
+begin
+
+  -- Detectores de flanco:
+  Detect1 : process(clk, rst)
+  begin
+    if rst = '0' then
+      done_1 <= '0';
+      done_2 <= '0';
+    elsif rising_edge(clk) then
+      done_1 <= DONE;
+      done_2 <= done_1;
+    end if;
+  end process;
+  
+    Detect2 : process(clk, rst) 
+     begin
+     if rst = '0' then
+       done_3 <= '0';
+         done_4 <= '0';
+     elsif rising_edge(clk) then
+         done_3 <= start_reg;
+         done_4 <= done_3;
+      end if;
+     end process;
+  -- Generar se al START cuando haya flanco de DONE
+  start_reg <= '1' when (done_1 = '1' and done_2 = '0') else '0';
+  
+  -- Contador direcciones
+  Contador : process(clk, rst)
+  begin
+    if rst = '0' then
+      addr_cnt <= (others => '0');
+    elsif rising_edge(clk) then
+      if start_reg = '1' then
+        addr_cnt <= addr_cnt + 1;
+      end if;
+    end if;
+  end process;
+  
+  START <= done_4;
+  addr_rd <= std_logic_vector(addr_cnt);
+  
+end architecture;
