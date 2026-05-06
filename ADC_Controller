@@ -1,0 +1,138 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 03.02.2026 19:59:39
+-- Design Name: 
+-- Module Name: ADC_Controller - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ADC_Controller is
+    port( -- ENTRADAS
+          rst       : in STD_LOGIC ;
+          D1     : in STD_LOGIC;
+          START     : in STD_LOGIC;
+          
+          clk_in    : in STD_LOGIC;
+           
+          -- SALIDAS
+          DRDY    : out STD_LOGIC;
+          D1_out  : out STD_LOGIC_VECTOR (11 downto 0); 
+          clk_out : out STD_LOGIC;
+          CS      : out STD_LOGIC);
+end ADC_Controller;
+
+architecture Behavioral of ADC_Controller is
+
+-- component Contador_START is
+--        Port ( 
+--            clk        : in  STD_LOGIC;
+--            rst        : in  STD_LOGIC;
+--            start_reg  : in  STD_LOGIC;
+--            start_out  : out STD_LOGIC
+--        );
+--  end component;  
+component Prescaler is           
+      Port ( clk_in  : in STD_LOGIC;
+               rst     : in STD_LOGIC;
+               clk_en  : in STD_LOGIC;
+               DIV     : in unsigned(4 downto 0);
+               clk_out : out STD_LOGIC);
+    end component Prescaler;
+
+component SHIFTREGISTER_ADC is
+    Port ( clk    : in STD_LOGIC; -- reloj (20 MHz)
+              D1_i  : in STD_LOGIC; -- entrada dato 1 serie
+              en_cnt : in STD_LOGIC; 
+              D1_s      : out STD_LOGIC_VECTOR (11 downto 0); -- salida dato 1 en bus
+              ShiftCounter : out STD_LOGIC_VECTOR (3 downto 0)); -- contador de cambio
+end component SHIFTREGISTER_ADC;
+
+component ADC_FSM is
+  Port (
+        clk_100   : in  STD_LOGIC;
+        rst       : in  STD_LOGIC;
+        START     : in  STD_LOGIC;
+        cntData   : in  STD_LOGIC_VECTOR (3 downto 0);
+
+        DRDY      : out STD_LOGIC;
+        CS        : out STD_LOGIC;
+        en_cnt    : out STD_LOGIC
+       );
+end component ADC_FSM;
+
+    signal clk_20, clk_100  : STD_LOGIC;
+    signal en_synq : STD_LOGIC;
+    signal cnt_en : STD_LOGIC_VECTOR (3 downto 0);
+  --  signal pulso_10kHz      : STD_LOGIC; 
+        
+begin
+
+---- COntador 10KHz de final de cuenta
+--    Contador10KHz: Contador_START 
+--        port map (
+--            clk       => clk_100,      -- 200 MHz
+--            rst       => rst,         -- Reset general
+--            start_reg => START,       -- Viene de constante
+--            start_out => pulso_10kHz  -- Este es el pulso de disparo
+--        );
+    -- Prescaler 20 MHz (Dividir 200MHz entre 10)
+    PSC_20MHz: prescaler 
+        port map ( 
+            clk_in  => clk_in,
+            rst     => rst,
+            clk_en  => '1',            --  habilitado
+            DIV     => "01010",        --  10 en binario
+            clk_out => clk_20
+        );
+                        
+    -- Prescaler para 100 MHz (Dividir 200MHz entre 2)
+    PSC_100MHz: prescaler 
+        port map ( 
+            clk_in  => clk_in,
+            rst     => rst,
+            clk_en  => '1',            --  habilitado
+            DIV     => "00010",        --   2 en binario
+            clk_out => clk_100
+        );
+            -- Shiftregister trabaja a 20MHz                              
+    ShiftR_ADC: SHIFTREGISTER_ADC port map ( clk => clk_20,    
+                                  D1_i => D1, 
+                                  en_cnt => en_synq,     
+                                  D1_s => D1_out,
+                                  ShiftCounter => cnt_en);
+   --  FSM trabaja a 100MHz                             
+   FSMach_ADC: ADC_FSM port map ( clk_100 => clk_100,    
+                                  rst => rst,   
+                                  START => START, --pulso_10kHz
+                                  cntData => cnt_en,    
+                                  DRDY => DRDY,     
+                                  CS => CS,       
+                                  en_cnt => en_synq);    
+
+    clk_out <= clk_20; -- salida de 20 MHz para el ADC
+    
+end Behavioral;
