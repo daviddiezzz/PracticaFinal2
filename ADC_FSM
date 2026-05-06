@@ -1,0 +1,138 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 03.02.2026 20:11:23
+-- Design Name: 
+-- Module Name: ADC_FSM - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ADC_FSM is
+    Port ( clk_100 : in STD_LOGIC;
+           rst : in STD_LOGIC;
+           START : in STD_LOGIC; 
+           cntData : in STD_LOGIC_VECTOR (3 downto 0);
+           DRDY: out STD_LOGIC;
+           CS : out STD_LOGIC;
+           en_cnt : out STD_LOGIC);
+end ADC_FSM;
+
+architecture Behavioral of ADC_FSM is
+
+type estados is (HOLD, FPORCH, SHIFTING, BPORCH);
+    signal e_act, e_sig : estados;
+    signal contador_dato : std_logic_vector(3 downto 0);
+    signal contador : unsigned(1 downto 0) := "00";
+    signal en_counter : std_logic;
+    signal counter_sync : unsigned(2 downto 0);
+begin
+   contador_dato <= cntData;
+   
+  P_S_FSM: process (clk_100, rst)
+    begin
+       if rst = '0' then
+            e_act <= HOLD;
+        elsif rising_edge(clk_100) then
+            e_act<= e_sig;
+        end if;
+    end process;
+    
+    process(e_act, START, contador_dato, contador, counter_sync)
+    begin
+     
+        CS     <= '0';
+        DRDY   <= '1';
+        en_cnt <= '0';
+        e_sig  <= e_act;
+
+        case e_act is
+            when HOLD =>
+                CS     <= '1';
+                DRDY   <= '0';
+                en_cnt <= '0';
+                if START = '1' then
+                   e_sig <= FPORCH;
+                end if;
+            
+            when FPORCH =>
+                CS     <= '0';
+                DRDY   <= '0';
+                en_cnt <= '0';
+                if contador = "10" then
+                    e_sig <= SHIFTING;
+                end if;
+
+            when SHIFTING =>
+                CS     <= '0';
+                DRDY   <= '0';
+                en_cnt <= '1';
+                if contador_dato = "1111" and counter_sync = "100" then
+                    e_sig <= BPORCH;
+                end if;
+              
+              when BPORCH =>
+                CS     <= '0';
+                DRDY   <= '1';
+                en_cnt <= '0';
+                    if counter_sync = "110" then
+                        en_cnt <= '0';
+                    end if;
+                    if contador = "00" then
+                        e_sig <= HOLD;
+                    end if;
+
+            when others =>
+               e_sig <= HOLD;
+        end case;
+       end process;
+       
+    Contadores: process(clk_100, rst)
+    begin
+    if rst = '0' then
+        contador <= "00";
+        counter_sync <= "000";
+    elsif rising_edge(clk_100) then
+        case e_act is
+            when FPORCH =>
+                contador <= contador + 1;
+                counter_sync<="000";
+            when SHIFTING =>
+                if contador_dato = "1111" then
+                    counter_sync <=counter_sync+1;
+                end if;
+                contador <= "00";
+            when BPORCH =>
+                contador <= contador + 1;
+                counter_sync <= counter_sync+1;
+            when others =>
+                counter_sync <= "000";
+                contador <= "00";
+        end case;
+    end if;
+    end process;
+
+end Behavioral;
