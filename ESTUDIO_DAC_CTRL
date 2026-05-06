@@ -1,0 +1,209 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 10.01.2026 17:58:10
+-- Design Name: 
+-- Module Name: ESTUDIO_DAC_CTRL - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ESTUDIO_DAC_CTRL is
+    Port ( clk200 : in STD_LOGIC;
+           nRST : in STD_LOGIC;
+           DATA1 : in STD_LOGIC_VECTOR (11 downto 0);
+           START : in STD_LOGIC;
+           START1: in STD_LOGIC;
+           
+           DONE : out STD_LOGIC;
+           D1 : out STD_LOGIC;
+           nSYNQ : out STD_LOGIC;
+           CLK_OUT : out STD_LOGIC);
+end ESTUDIO_DAC_CTRL;
+
+architecture Behavioral of ESTUDIO_DAC_CTRL is
+-- Instanciacion componentes AddrCtrl y MemRam
+--component AddrCtrl is
+--  port (
+--    clk  : in  std_logic;
+--    rst   : in  std_logic;
+--    DONE   : in  std_logic;
+--    addr_rd : out std_logic_vector( 13 downto 0);
+--    START  : out std_logic
+--  );
+--end component;
+
+--component Memoria_RAM is
+--    Generic ( d_width    : integer; -- ancho de palabra
+--              addr_width : integer); -- tamaño de la memoria
+              
+--       Port ( clk     : in STD_LOGIC;
+--              wr_en   : in STD_LOGIC; -- enable escritura
+--              addr_rd : in STD_LOGIC_VECTOR ((addr_width - 1) downto 0); -- dirección a leer
+--              addr_wr : in STD_LOGIC_VECTOR ((addr_width - 1) downto 0); -- dirección a escribir
+--              data_in : in STD_LOGIC_VECTOR ((d_width - 1) downto 0); -- dato de entrada a escribir
+--              data_out : out STD_LOGIC_VECTOR ((d_width - 1) downto 0)); -- dato de salida a leer
+--end component;
+
+---- RAM
+--signal addr_rd_s     : std_logic_vector(13 downto 0);
+--signal data_mem_out  : std_logic_vector(11 downto 0);
+
+--signal data_in  : std_logic_vector(11 downto 0);
+--signal addr_wr  : std_logic_vector(13 downto 0);
+--signal wr_en:  std_logic;
+
+---- AddrCtrl
+--signal start_s       : std_logic;
+--signal done_int      : std_logic;
+
+signal LoadData: std_logic;
+signal en_shift: std_logic;
+signal shiftCounter: unsigned (3 downto 0) := (others=>'0');
+signal shiftRegister: std_logic_vector(15 downto 0):= (others=>'0');
+
+-- prescaler
+signal cntdiv8: unsigned(2 downto 0);
+signal clk25: std_logic:='0';
+
+--FSM
+type estados is (IDLE,SHIFTOUT,SYNCDATA);
+signal e_act, e_sig: estados;
+
+begin
+
+
+--U_ADDRCTRL : AddrCtrl
+--port map(
+--    clk     => clk25,
+--    rst     => nRST,
+--    DONE    => done_int,
+--    addr_rd => addr_rd_s,
+--    START   => start_s
+--);
+
+--U_RAM : Memoria_RAM
+--generic map(
+--    d_width    => 12,
+--    addr_width => 14
+--)
+--port map(
+--    clk      => clk25,
+--    wr_en    => wr_en,
+--    addr_rd  => addr_rd_s,
+--    addr_wr  => addr_wr,
+--    data_in  => data_in,
+--    data_out => data_mem_out
+--);
+
+
+
+Prescaler: Process(clk200,nRST)
+begin
+    if nRST ='0' then
+        cntdiv8<=(others=>'0');
+        clk25<='0';
+    elsif rising_edge(clk200) then
+        if cntdiv8= 3 then
+           cntdiv8<=(others=>'0');
+           clk25<= not clk25;
+        else 
+            cntdiv8<=cntdiv8 + 1;
+        end if;
+    end if;
+end process;
+
+CLK_OUT<=clk25;
+
+
+P_S_FSM: Process(clk25,nRST)
+begin
+    if nRST ='0' then
+        e_act<= IDLE;
+    elsif rising_edge(clk25) then
+        e_act<=e_sig;    
+    end if;
+end process;
+
+P_C_FSM: Process(e_act, START,START1, shiftCounter)
+begin
+e_sig<=e_act;
+   case e_act is
+    when IDLE=>
+        en_shift<='0';
+        LoadData<='1';
+        DONE<='1';
+        nSYNQ<='1';
+        
+            if (START ='1' OR START1= '1') then
+                e_sig<=SHIFTOUT;
+            end if;
+            
+    when SHIFTOUT=>
+        en_shift<='1';
+        DONE<='0';
+        LoadData<='0';
+        nSYNQ<='0';
+        
+            if shiftCounter = 15 then
+                e_sig<=SYNCDATA;
+            end if;
+            
+     when SYNCDATA=>
+        en_shift<='0';
+        DONE<='0';
+        LoadData<='0';
+        nSYNQ<='1';
+        
+            if START='0' then
+                e_sig<=IDLE;
+            end if; 
+             
+     when others=>
+            e_sig<=IDLE;
+    end case;
+end process;
+
+SHIFTREG: Process(clk25)
+    begin
+    if rising_edge(clk25) then
+    if LoadData = '1' then
+           shiftRegister(15 downto 12) <= (others => '0');
+           shiftRegister(11 downto 0) <= DATA1;
+           shiftCounter <= "0000";
+           
+    elsif en_shift ='1' then      
+       shiftRegister(15 downto 1) <= shiftRegister (14 downto 0);
+       shiftRegister(0)<= shiftRegister(15);
+       shiftCounter <= shiftCounter +1;
+       end if;
+       end if;
+    end process;
+    
+D1<=ShiftRegister(15);
+
+
+end Behavioral;
