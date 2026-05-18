@@ -13,7 +13,7 @@ end Contador_START;
 
 architecture Behavioral of Contador_START is
 
-    signal contador : unsigned(9 downto 0) := (others => '0'); -- hasta 999
+    signal contador : unsigned(10 downto 0) := (others => '0'); -- hasta 999
     signal start_int : STD_LOGIC := '0';
 
 begin
@@ -24,7 +24,7 @@ begin
         contador <= (others => '0');
 
     elsif rising_edge(clk) then
-        if contador = 19999 then --19999 es para 10KHz y 1999 es para 100KHz 
+        if contador = 999 then --19999 es para 10KHz y 1999 es para 100KHz 
             contador <= (others => '0');
         else
             contador <= contador + 1;
