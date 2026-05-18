@@ -1,0 +1,100 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 14.05.2026 19:43:07
+-- Design Name: 
+-- Module Name: DetectorPicos - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+ 
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity DetectorPicos is
+    Port(
+        drdy_adc      : in  STD_LOGIC;
+        dato_adc      : in  STD_LOGIC_VECTOR(11 downto 0);
+        pico_detectado : out STD_LOGIC
+    );
+end DetectorPicos;
+
+architecture Behavioral of DetectorPicos is
+
+ -- Constantes
+    constant UMBRAL_ALTO : unsigned(11 downto 0) := to_unsigned(1200,12);
+    constant UMBRAL_BAJO : unsigned(11 downto 0) := to_unsigned(600,12);
+    constant HISTERESIS  : unsigned(11 downto 0) := to_unsigned(300,12);
+    
+ -- FSM
+    type estado_t is (
+        ESPERA_SUBIDA,
+        SEGUIMIENTO_PICO,
+        ESPERA_REARME
+    );
+
+    signal estado_actual : estado_t := ESPERA_SUBIDA;
+
+    -- Señales internas
+    signal dato_unsigned : unsigned(11 downto 0);
+    signal maximo_actual : unsigned(11 downto 0) := (others => '0');
+begin
+ dato_unsigned <= unsigned(dato_adc);
+
+    process(drdy_adc)
+    begin
+
+        if rising_edge(drdy_adc) then
+            pico_detectado <= '0';
+            
+            case estado_actual is
+                -- Espera de subida
+                when ESPERA_SUBIDA =>
+                    if dato_unsigned > UMBRAL_ALTO then
+                        maximo_actual <= dato_unsigned;
+                        estado_actual <= SEGUIMIENTO_PICO;
+                    end if;
+
+                -- Seguimiento del máximo
+                when SEGUIMIENTO_PICO =>
+                    if dato_unsigned > maximo_actual then
+                        maximo_actual <= dato_unsigned;
+                        
+                    elsif (maximo_actual > HISTERESIS) and
+                          (dato_unsigned < (maximo_actual - HISTERESIS)) then
+                        pico_detectado <= '1';
+                        estado_actual <= ESPERA_REARME;
+
+                    end if;
+
+                -- Rearme del detector
+                when ESPERA_REARME =>
+                    if dato_unsigned < UMBRAL_BAJO then
+                        estado_actual <= ESPERA_SUBIDA;
+                    end if;
+
+            end case;
+
+        end if;
+ end process;
+end Behavioral;
