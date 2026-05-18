@@ -1,0 +1,98 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 14.05.2026 19:44:57
+-- Design Name: 
+-- Module Name: ValorMedio - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+ 
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ValorMedio is
+Port(
+        clk_200          : in  STD_LOGIC;
+        rst            : in  STD_LOGIC;
+        drdy_adc         : in  STD_LOGIC;
+        pico_detectado   : in  STD_LOGIC;
+        dato_adc         : in  STD_LOGIC_VECTOR(11 downto 0);
+        suma_out         : out STD_LOGIC_VECTOR(31 downto 0);
+        muestras_out     : out STD_LOGIC_VECTOR(31 downto 0)
+    );
+  end ValorMedio;
+
+architecture Behavioral of ValorMedio is
+
+    -- Señales internas
+    signal acumulador_muestras : unsigned(31 downto 0) := (others => '0');
+    signal contador_muestras   : unsigned(31 downto 0) := (others => '0');
+    signal drdy_anterior       : std_logic := '0';
+    signal nueva_muestra       : std_logic;
+
+begin
+
+ -- Detección de flanco de DRDY
+    nueva_muestra <= '1' when (drdy_adc = '1' and drdy_anterior = '0')
+                     else '0';
+
+    process(clk_200)
+    begin
+    
+        if rising_edge(clk_200) then
+
+            if rst = '0' then
+                acumulador_muestras <= (others => '0');
+                contador_muestras <= (others => '0');
+                suma_out <= (others => '0');
+                muestras_out <= (others => '0');
+                drdy_anterior <= '0';
+
+            else
+                -- Registro histórico DRDY
+                drdy_anterior <= drdy_adc;
+                
+                -- Nuevo dato ADC
+                if nueva_muestra = '1' then
+
+                    -- Fin de periodo
+                    if pico_detectado = '1' then
+                    
+                        suma_out <= std_logic_vector(acumulador_muestras);
+                        muestras_out <=std_logic_vector(contador_muestras);
+                        acumulador_muestras <=resize(unsigned(dato_adc),32);
+                        contador_muestras <=to_unsigned(1,32);
+                            
+                    -- Acumulación 
+                    else
+                        acumulador_muestras <= acumulador_muestras +resize(unsigned(dato_adc),32);
+                        contador_muestras <= contador_muestras + 1;
+                    end if;
+                end if;
+            end if;
+        end if;
+
+    end process;
+
+end Behavioral;
