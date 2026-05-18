@@ -1,0 +1,153 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 18.05.2026 19:44:28
+-- Design Name: 
+-- Module Name: ContaPeriodos_tb - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ContaPeriodos_tb is
+--  Port ( );
+end ContaPeriodos_tb;
+
+architecture Behavioral of ContaPeriodos_tb is
+
+ component ContaPeriodos is
+        Port(
+            clk_200      : in  STD_LOGIC;
+            rst          : in  STD_LOGIC;
+
+            entrada_pico : in  STD_LOGIC;
+
+            periodo_out  : out STD_LOGIC_VECTOR(31 downto 0)
+        );
+    end component;
+
+    ------------------------------------------------------------------------
+    -- SEÑALES
+    ------------------------------------------------------------------------
+
+    signal clk_200_tb      : STD_LOGIC := '0';
+    signal rst_tb          : STD_LOGIC := '0';
+
+    signal entrada_pico_tb : STD_LOGIC := '0';
+
+    signal periodo_out_tb  : STD_LOGIC_VECTOR(31 downto 0);
+
+begin
+
+    ------------------------------------------------------------------------
+    -- INSTANCIA
+    ------------------------------------------------------------------------
+
+    DUT : ContaPeriodos
+        port map(
+
+            clk_200      => clk_200_tb,
+
+            rst          => rst_tb,
+
+            entrada_pico => entrada_pico_tb,
+
+            periodo_out  => periodo_out_tb
+
+        );
+
+    ------------------------------------------------------------------------
+    -- CLOCK 200 MHz
+    ------------------------------------------------------------------------
+
+    process
+    begin
+
+        while true loop
+
+            clk_200_tb <= '0';
+            wait for 2.5 ns;
+
+            clk_200_tb <= '1';
+            wait for 2.5 ns;
+
+        end loop;
+
+    end process;
+
+    ------------------------------------------------------------------------
+    -- ESTÍMULOS
+    ------------------------------------------------------------------------
+
+    process
+    begin
+
+        --------------------------------------------------------------------
+        -- RESET
+        --------------------------------------------------------------------
+
+        rst_tb <= '0';
+        wait for 20 ns;
+
+        rst_tb <= '1';
+
+        --------------------------------------------------------------------
+        -- Primer pulso
+        --------------------------------------------------------------------
+
+        wait for 100 ns;
+
+        entrada_pico_tb <= '1';
+        wait for 5 ns;
+
+        entrada_pico_tb <= '0';
+
+        --------------------------------------------------------------------
+        -- Segundo pulso
+        --------------------------------------------------------------------
+
+        wait for 200 ns;
+
+        entrada_pico_tb <= '1';
+        wait for 5 ns;
+
+        entrada_pico_tb <= '0';
+
+        --------------------------------------------------------------------
+        -- Tercer pulso
+        --------------------------------------------------------------------
+
+        wait for 150 ns;
+
+        entrada_pico_tb <= '1';
+        wait for 5 ns;
+
+        entrada_pico_tb <= '0';
+
+        wait;
+
+    end process;
+
+end Behavioral;
