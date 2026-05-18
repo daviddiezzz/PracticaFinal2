@@ -1,0 +1,143 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity ValorMedio_tb is
+end ValorMedio_tb;
+
+architecture Behavioral of ValorMedio_tb is
+
+    component ValorMedio is
+        Port(
+            clk_200        : in  STD_LOGIC;
+            rst            : in  STD_LOGIC;
+            drdy_adc       : in  STD_LOGIC;
+            pico_detectado : in  STD_LOGIC;
+            dato_adc       : in  STD_LOGIC_VECTOR(11 downto 0);
+            suma_out       : out STD_LOGIC_VECTOR(31 downto 0);
+            muestras_out   : out STD_LOGIC_VECTOR(31 downto 0)
+        );
+    end component;
+
+    signal clk_200_tb        : STD_LOGIC := '0';
+    signal rst_tb            : STD_LOGIC := '0';
+    signal drdy_adc_tb       : STD_LOGIC := '0';
+    signal pico_detectado_tb : STD_LOGIC := '0';
+    signal dato_adc_tb       : STD_LOGIC_VECTOR(11 downto 0) := (others => '0');
+    signal suma_out_tb       : STD_LOGIC_VECTOR(31 downto 0);
+    signal muestras_out_tb   : STD_LOGIC_VECTOR(31 downto 0);
+
+begin
+
+    DUT: ValorMedio
+        port map(
+            clk_200        => clk_200_tb,
+            rst            => rst_tb,
+            drdy_adc       => drdy_adc_tb,
+            pico_detectado => pico_detectado_tb,
+            dato_adc       => dato_adc_tb,
+            suma_out       => suma_out_tb,
+            muestras_out   => muestras_out_tb
+        );
+
+    --------------------------------------------------------------------
+    -- CLOCK 200 MHz
+    --------------------------------------------------------------------
+    clk_process : process
+    begin
+        while true loop
+            clk_200_tb <= '0';
+            wait for 2.5 ns;
+            clk_200_tb <= '1';
+            wait for 2.5 ns;
+        end loop;
+    end process;
+
+    --------------------------------------------------------------------
+    -- ESTÍMULOS TIPO ADC REAL
+    --------------------------------------------------------------------
+    stim : process
+    begin
+
+        ------------------------------------------------------------
+        -- RESET
+        ------------------------------------------------------------
+        rst_tb <= '0';
+        wait for 20 ns;
+        rst_tb <= '1';
+
+        wait until rising_edge(clk_200_tb);
+
+        ------------------------------------------------------------
+        -- FUNCIÓN: aplicar muestra ADC
+        ------------------------------------------------------------
+        -- Muestra 1 = 1000
+        dato_adc_tb <= std_logic_vector(to_unsigned(1000,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';   -- pulso 1 ciclo
+        --pico_detectado_tb <= '1';
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+       -- pico_detectado_tb <= '0';
+
+        -- Muestra 2 = 1500
+        dato_adc_tb <= std_logic_vector(to_unsigned(1500,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';
+       -- pico_detectado_tb <= '1';
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+       -- pico_detectado_tb <= '0';
+
+        -- Muestra 3 = 2000
+        dato_adc_tb <= std_logic_vector(to_unsigned(2000,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';
+        --pico_detectado_tb <= '1';
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+       -- pico_detectado_tb <= '0';
+
+        -- Muestra 4 = 2500
+        dato_adc_tb <= std_logic_vector(to_unsigned(2500,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';
+       -- pico_detectado_tb <= '1';
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+       -- pico_detectado_tb <= '0';
+
+        ------------------------------------------------------------
+        -- FIN DE PERIODO
+        ------------------------------------------------------------
+
+
+        ------------------------------------------------------------
+        -- NUEVO PERIODO
+        ------------------------------------------------------------
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(1200,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';
+       -- pico_detectado_tb <= '1';
+
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+        --pico_detectado_tb <= '0';
+
+
+
+-- VA RECOGIENDO MUESTRAS HASTA QUE DETECTA EL PICO (LO PONEMOS AL FINAL PORQUE SI NO SIEMPRE CUENTA DE 1 EN 1 PICO) Y QUEREMOS VER LA SUMA TOTAL
+        dato_adc_tb <= std_logic_vector(to_unsigned(1800,12));
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '1';
+        pico_detectado_tb <= '1';
+        wait until rising_edge(clk_200_tb);
+        drdy_adc_tb <= '0';
+        pico_detectado_tb <= '0';
+
+        wait;
+
+    end process;
+
+end Behavioral;
