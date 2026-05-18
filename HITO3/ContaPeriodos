@@ -1,0 +1,83 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 14.05.2026 19:44:09
+-- Design Name: 
+-- Module Name: ContaPeriodos - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity ContaPeriodos is
+    Port(
+        clk_200       : in  STD_LOGIC;
+        rst        : in  STD_LOGIC;
+        entrada_pico  : in  STD_LOGIC;
+        periodo_out   : out STD_LOGIC_VECTOR(31 downto 0)
+    );
+end ContaPeriodos;
+
+architecture Behavioral of ContaPeriodos is
+
+    -- Señales internas
+    signal contador_periodo : unsigned(31 downto 0) := (others => '0');
+    signal pico_sync_1      : std_logic := '0';
+    signal pico_sync_2      : std_logic := '0';
+    signal pico_anterior    : std_logic := '0';
+    
+begin
+
+ process(clk_200)
+    begin
+        if rising_edge(clk_200) then
+            if rst = '0' then
+                contador_periodo <= (others => '0');
+                pico_sync_1 <= '0';
+                pico_sync_2 <= '0';
+                pico_anterior <= '0';
+                periodo_out <= (others => '0');
+
+            else
+                -- Sincronización doble flip-flop
+                pico_sync_1 <= entrada_pico;
+                pico_sync_2 <= pico_sync_1;
+
+                -- Registro histórico
+                pico_anterior <= pico_sync_2;
+
+                -- Detección de flanco
+                if (pico_sync_2 = '1' and pico_anterior = '0') then
+                    periodo_out <= std_logic_vector(contador_periodo);
+                    contador_periodo <= (others => '0');
+                else
+                    contador_periodo <= contador_periodo + 1;
+                end if;
+            end if;
+        end if;
+
+    end process;
+
+end Behavioral;
