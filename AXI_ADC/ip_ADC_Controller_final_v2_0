@@ -2,7 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity ip_ADC_Controller_final_v1_0 is
+entity ip_ADC_Controller_final_v2_0 is
 	generic (
 		-- Users to add parameters here
 
@@ -18,7 +18,6 @@ entity ip_ADC_Controller_final_v1_0 is
 		-- Users to add ports here
         DATA : in std_logic_vector(11 downto 0);
         DRDY : in std_logic;
-        
 		-- User ports ends
 		-- Do not modify the ports beyond this line
 
@@ -46,12 +45,12 @@ entity ip_ADC_Controller_final_v1_0 is
 		s00_axi_rvalid	: out std_logic;
 		s00_axi_rready	: in std_logic
 	);
-end ip_ADC_Controller_final_v1_0;
+end ip_ADC_Controller_final_v2_0;
 
-architecture arch_imp of ip_ADC_Controller_final_v1_0 is
+architecture arch_imp of ip_ADC_Controller_final_v2_0 is
 
 	-- component declaration
-	component ip_ADC_Controller_final_v1_0_S00_AXI is
+	component ip_ADC_Controller_final_v2_0_S00_AXI is
 		generic (
 		C_S_AXI_DATA_WIDTH	: integer	:= 32;
 		C_S_AXI_ADDR_WIDTH	: integer	:= 4
@@ -81,19 +80,18 @@ architecture arch_imp of ip_ADC_Controller_final_v1_0 is
 		S_AXI_RVALID	: out std_logic;
 		S_AXI_RREADY	: in std_logic
 		);
-	end component ip_ADC_Controller_final_v1_0_S00_AXI;
-    signal reg0 : std_logic_vector(31 downto 0);
-    signal reg1 : std_logic_vector(31 downto 0);
+	end component ip_ADC_Controller_final_v2_0_S00_AXI;
+
 begin
 
 -- Instantiation of Axi Bus Interface S00_AXI
-ip_ADC_Controller_final_v1_0_S00_AXI_inst : ip_ADC_Controller_final_v1_0_S00_AXI
+ip_ADC_Controller_final_v2_0_S00_AXI_inst : ip_ADC_Controller_final_v2_0_S00_AXI
 	generic map (
 		C_S_AXI_DATA_WIDTH	=> C_S00_AXI_DATA_WIDTH,
 		C_S_AXI_ADDR_WIDTH	=> C_S00_AXI_ADDR_WIDTH
 	)
 	port map (
-		val_reg0 => DATA,
+	   val_reg0 => DATA,
 	    val_reg1 => DRDY,
 		S_AXI_ACLK	=> s00_axi_aclk,
 		S_AXI_ARESETN	=> s00_axi_aresetn,
