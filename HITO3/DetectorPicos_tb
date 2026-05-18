@@ -1,0 +1,128 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 18.05.2026 19:44:03
+-- Design Name: 
+-- Module Name: DetectorPicos_tb - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity DetectorPicos_tb is
+--  Port ( );
+end DetectorPicos_tb;
+
+architecture Behavioral of DetectorPicos_tb is
+
+    component DetectorPicos is
+        Port(
+            drdy_adc       : in  STD_LOGIC;
+            dato_adc       : in  STD_LOGIC_VECTOR(11 downto 0);
+            pico_detectado : out STD_LOGIC
+        );
+    end component;
+
+    ------------------------------------------------------------------------
+    -- SEÑALES
+    ------------------------------------------------------------------------
+
+    signal drdy_adc_tb       : STD_LOGIC := '0';
+    signal dato_adc_tb       : STD_LOGIC_VECTOR(11 downto 0) := (others => '0');
+
+    signal pico_detectado_tb : STD_LOGIC;
+
+begin
+
+    ------------------------------------------------------------------------
+    -- INSTANCIA
+    ------------------------------------------------------------------------
+
+    UUT : DetectorPicos
+        port map(
+
+            drdy_adc       => drdy_adc_tb,
+
+            dato_adc       => dato_adc_tb,
+
+            pico_detectado => pico_detectado_tb
+
+        );
+
+    ------------------------------------------------------------------------
+    -- GENERACIÓN DRDY
+    ------------------------------------------------------------------------
+
+    process
+    begin
+
+        while true loop
+
+            drdy_adc_tb <= '0';
+            wait for 10 ns;
+
+            drdy_adc_tb <= '1';
+            wait for 10 ns;
+
+        end loop;
+
+    end process;
+
+    ------------------------------------------------------------------------
+    -- ESTÍMULOS ADC
+    ------------------------------------------------------------------------
+
+    process
+    begin
+
+        wait for 50 ns;
+
+        -- Subida
+        dato_adc_tb <= std_logic_vector(to_unsigned(500,12));
+        wait for 20 ns;
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(900,12));
+        wait for 20 ns;
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(1300,12));
+        wait for 20 ns;
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(1800,12));
+        wait for 20 ns;
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(2200,12));
+        wait for 20 ns;
+
+        -- Bajada -> detección
+        dato_adc_tb <= std_logic_vector(to_unsigned(1500,12));
+        wait for 20 ns;
+
+        dato_adc_tb <= std_logic_vector(to_unsigned(500,12));
+        wait for 50 ns;
+
+        wait;
+
+    end process;
+end Behavioral;
