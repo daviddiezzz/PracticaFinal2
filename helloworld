@@ -4,149 +4,148 @@
 #include "xil_printf.h"
 #include "xil_io.h"
 #include "unistd.h"
+#include "math.h"
 #include "xparameters.h"
 #include "ip_DAC_Controller_final.h"
 #include "ip_ADC_Controller_final.h"
+#include "Hito3_MAV.h"
 
+
+// Direcciones base (Asegúrate que coinciden con tu Address Editor en Vivado)
 #define DAC_ADDR XPAR_IP_DAC_CONTROLLER_FI_0_S00_AXI_BASEADDR
 #define ADC_ADDR XPAR_IP_ADC_CONTROLLER_FI_0_S00_AXI_BASEADDR
 
+// Offsets de los registros
 #define REG0_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG0_OFFSET // wr_ena
-#define REG1_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG1_OFFSET //data_in (rampa)
-#define REG2_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG2_OFFSET //addr_wr
-#define REG3_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG3_OFFSET //start2
+#define REG1_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG1_OFFSET // data_in
+#define REG2_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG2_OFFSET // addr_wr
+#define REG3_DAC IP_DAC_CONTROLLER_FINAL_S00_AXI_SLV_REG3_OFFSET // start
 
-#define REG0_ADC IP_ADC_CONTROLLER_FINAL_S00_AXI_SLV_REG0_OFFSET // data1 ( salida)
-#define REG1_ADC IP_ADC_CONTROLLER_FINAL_S00_AXI_SLV_REG1_OFFSET //drdy
+#define REG0_ADC IP_ADC_CONTROLLER_FINAL_S00_AXI_SLV_REG0_OFFSET // data_out
+#define REG1_ADC IP_ADC_CONTROLLER_FINAL_S00_AXI_SLV_REG1_OFFSET // drdy
 
-#define tam_RAM 16384 // 16k muestras
+#define TAM_RAM 16384
+#define MUESTRAS_CAPTURA 500 // Puntos que capturaremos para mostrar la rampa
+#define PI 3.14159265358979323846
 
-void generar_rampa_limpia(int tam, uint16_t* buffer);
+ //HITO 3
+#define Hito3_ADDR XPAR_HITO3_MAV_0_S00_AXI_BASEADDR
+#define REG0_Hito3 HITO3_MAV_S00_AXI_SLV_REG0_OFFSET //Contador periodo
+#define REG1_Hito3 HITO3_MAV_S00_AXI_SLV_REG1_OFFSET //suma total
+#define REG2_Hito3 HITO3_MAV_S00_AXI_SLV_REG2_OFFSET // Contador total
 
-#define CICLOS_ADC 4
-#define MUESTRAS_ADC (CICLOS_ADC * tam_RAM)
-
-uint16_t tabla[tam_RAM];
-uint16_t adc_buffer[MUESTRAS_ADC];
-
-
-static inline void dac_write_pulse(void)
-{
-
-	IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 1);
-	IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG3_DAC, 1);
+#define CLK_PERIOD_NS 5.0e-9  // Reloj de 200MHz
+#define V_REF 3.3             // Voltaje de referencia DAC/ADC
+#define RESOLUTION 4096.0     // 12 bits
 
 
-    (void)Xil_In32(DAC_ADDR + REG0_DAC);
-    //IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 0);
+uint16_t tabla_rampa[TAM_RAM];
+uint16_t tabla_seno[TAM_RAM];
+uint16_t buffer_adc[MUESTRAS_CAPTURA];
+
+// Función para generar la rampa de 0 a 4095 en los 16k puntos
+void generar_rampa(int tam, uint16_t* buffer) {
+    for(int i = 0; i < tam; i++) {
+        buffer[i] = (uint16_t)(( (uint32_t)i * 4095) / (tam - 1));
+    }
 }
 
+// Función para generar una onda senoidal
+void generar_seno(int tam, uint16_t* buffer) {
+    float amplitud = 2047.0f;
+    float offset   = 2047.0f;
+
+    for(int i = 0; i < tam; i++) {
+        float x = 2.0f * PI * ((float)i / (float)tam);
+
+        // Aproximación rápida de seno si no puedes usar math.h
+        // sin(x) approx x - x^3/6 + x^5/120
+        // Pero lo mejor es arreglar el Linker (Paso 1)
+        //float s = sin(x);
+        buffer[i] = (uint16_t)(offset + amplitud * sin(x));
+    }
+}
 
 
 int main() {
     init_platform();
-    xil_printf("\n\r--- MODO DIAGNÓSTICO PASO A PASO ---\n\r");
-    IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG3_DAC, 0);
-    IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 0);
+    xil_printf("\n\r--- INICIANDO SISTEMA DAC-ADC (ZYBO Z10) ---\n\r");
 
-   // uint16_t valor_test = 2048;
-    //xil_printf("Cargando valor fijo %d en toda la RAM...\r\n", valor_test);
+    // 1. Reset de señales de control
+    IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG3_DAC, 0); // Parar DAC
+    IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 0); // Desactivar WE
 
-    generar_rampa_limpia(tam_RAM, tabla);
-    for (int i = 0; i < 16384; i++)
-           {
-    	//IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG1_DAC, i);
-    	IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG1_DAC, tabla[i]); //valor_test
-    	IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG2_DAC, i);
+    // 2. Generar y Cargar Rampa/Seno en la RAM
+    generar_rampa(TAM_RAM, tabla_rampa);
+    //generar_seno(TAM_RAM, tabla_seno);
 
-    			IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 1);
-    	       IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 0);
+    xil_printf("Cargando 16384 puntos en la RAM...\r\n");
 
-              // dac_write_pulse();
-               //usleep(1000);
-           }
+    for (int i = 0; i < TAM_RAM; i++) {
+        // Preparamos datos y dirección
+    	//IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG1_DAC, tabla_seno[i]); //seno
+        IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG1_DAC, tabla_rampa[i]); //rampa
+        IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG2_DAC, i);
 
+        // PULSO DE ESCRITURA (Crucial para que la FPGA se entere)
+        IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 1);
+        (void)IP_DAC_CONTROLLER_FINAL_mReadReg(DAC_ADDR, REG0_DAC); // Sync AXI
+        IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG0_DAC, 0);
+    }
+    xil_printf("Carga finalizada con éxito.\r\n");
+
+    // 3. Arrancar el DAC
+    xil_printf("Iniciando ciclo del DAC y lectura ADC...\r\n");
     IP_DAC_CONTROLLER_FINAL_mWriteReg(DAC_ADDR, REG3_DAC, 1);
 
+while (1){
+    		// ESTA PARTE ESTÁ COMENTADA PARA COMPROBAR LA SIMULACION DEL HITO 3
+	 ///*  // 4. Captura en Ráfaga (Burst) para evitar el lag de la consola
+   int capturados = 0;
+    xil_printf("Capturando ráfaga de %d puntos...\r\n", MUESTRAS_CAPTURA);
 
-
-   // 4. Bucle de lectura
-        while(1) {
-            uint8_t adc_DRDY;
-
-            // Esperar a que el ADC indique que el dato está listo
-            // OJO: Si el pulso es muy corto, el procesador puede "saltárselo"
-            adc_DRDY = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC);
-
-        //  if(adc_DRDY == 1) {
-                uint32_t REG0_ADC_value = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG0_ADC);
-
-                uint16_t adc_data = REG0_ADC_value & 0x0FFF;
-
-                xil_printf("DATA: %d | DRDY: %d\r\n", adc_data, adc_DRDY );
-
-                // Un pequeño delay para no saturar la consola
-               usleep(1);
-          //  }
+    while(capturados < MUESTRAS_CAPTURA) {
+        // Solo guardamos si el ADC tiene un dato nuevo
+        if(IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC) == 1) {
+            uint32_t val = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG0_ADC);
+            buffer_adc[capturados] = (uint16_t)(val & 0x0FFF);
+            capturados++;
         }
-
-    /*uint8_t adc_DRDY;
-    adc_DRDY = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC);
-
-    while(1)
-    {
-        // Espera a que esté listo
-        while(IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC) == 0);
-        usleep(2);
-        uint32_t REG0_ADC_value = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG0_ADC);
-        uint16_t adc_data = REG0_ADC_value & 0x0FFF;
-
-        xil_printf("DATA: %d | DRDY: %d\r\n", adc_data, adc_DRDY );
-
-        //  esperar a que vuelva a 0 antes de siguiente lectura
-        while(IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC) == 1);
-    }*/
-        cleanup_platform();
-        return 0;
-}
-
-/*
-    while(1)
-    {
-        uint8_t adc_DRDY;
-
-        // Esperar a dato válido
-        do {
-            adc_DRDY = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG1_ADC);
-        } while(adc_DRDY == 0);
-
-        uint32_t REG0_ADC_value = IP_ADC_CONTROLLER_FINAL_mReadReg(ADC_ADDR, REG0_ADC);
-        uint16_t adc_data = REG0_ADC_value & 0x0FFF;
-
-       xil_printf("DATA: %d | DRDY: %d\r\n", adc_data, adc_DRDY);
-       usleep(100);
     }
-}*/
-/*
-void generar_rampa(int tam, uint16_t* buffer) {
-    uint16_t value = 0;
 
-    for(int i = 0; i < tam; i++) {
-        if(i % 4 == 0 && i != 0)
-            value++;
+    // 5. Mostrar resultados
+    xil_printf("DATOS CAPTURADOS:\r\n");
+    for(int i = 0; i < MUESTRAS_CAPTURA; i++) {
+        xil_printf("%d\r\n", buffer_adc[i]);
+    } //*/     ESTA PARTE ESTÁ COMENTADA PARA COMPROBAR LA SIMULACION DEL LA LECTURA DEL ADC
 
-        if(value > 4095) value = 4095;   // límite DAC
+ // HITO 3: MEDIA Y FRECUENCIA
+/*			uint32_t periodo = HITO3_MAV_mReadReg(Hito3_ADDR, REG0_Hito3);
+	        uint32_t suma = HITO3_MAV_mReadReg(Hito3_ADDR, REG1_Hito3);
+	        uint32_t muestras = HITO3_MAV_mReadReg(Hito3_ADDR, REG2_Hito3);
 
-        buffer[i] = value;
-    }
+	        //  solo calculamos si hay datos válidos
+	        if (periodo > 0 && muestras > 0) {
+
+	            // Cálculo de frecuencia y voltaje
+	            float hz = 1.0f / ((float)periodo * CLK_PERIOD_NS);
+	            float v_medio = ((float)suma / (float)muestras) * (V_REF / RESOLUTION);
+
+	            // Buffers para convertir a texto
+	            char txt_hz[20], txt_v[20];
+	            sprintf(txt_hz, "%.2f", hz);
+	            sprintf(txt_v, "%.3f", v_medio);
+
+
+	            xil_printf("STATUS: %s Hz | MEDIA: %s V | (N=%d)\r\n", txt_hz, txt_v, muestras);
+
+	        } else {
+	            xil_printf("Esperando sincronizacion de IP de medidas...\r\n");
+	        }
+
+	        // Delay de refresco
+	        usleep(1500000);*/
+	    }
+    cleanup_platform();
+    return 0;
 }
-*/
-void generar_rampa_limpia(int tam, uint16_t* buffer) {
-    for(int i = 0; i < tam; i++) {
-        // Mapea el rango 0-16383 al rango 0-4095
-        // (i / 16383.0) * 4095
-        buffer[i] = (uint16_t)((i * 4095) / (tam - 1));
-    }
-}
-
-
